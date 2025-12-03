@@ -66,9 +66,10 @@ async def register(payload: UserCreate):
         "email": payload.email,
         "password": hashed_pw,
         "display_name": payload.display_name,
+        "admin": False,
     }
     await user_collection.insert_one(user_doc)
-    return UserOut(id=user_id, email=payload.email, display_name=payload.display_name)
+    return UserOut(id=user_id, email=payload.email, display_name=payload.display_name, admin=False)
 
 
 @app.post("/auth/login", response_model=TokenResponse)
@@ -83,7 +84,12 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 @app.get("/users/me", response_model=UserOut)
 async def get_me(current_user=Depends(get_current_user)):
-    return UserOut(id=current_user["id"], email=current_user["email"], display_name=current_user["display_name"])
+    return UserOut(
+        id=current_user["id"],
+        email=current_user["email"],
+        display_name=current_user["display_name"],
+        admin=current_user["admin"],
+    )
 
 
 # Developer note: Auth tokens are expected via Authorization: Bearer <token> header.

@@ -109,6 +109,9 @@ export const api = {
   async statsSummary() {
     return request(`${statsBase}/metrics/summary`)
   },
+  async statsMethodSummary() {
+    return request(`${statsBase}/metrics/method-summary`)
+  },
   async getRecommendations(body) {
     return request(`${recommenderBase}/recommendations`, {
       method: 'POST',

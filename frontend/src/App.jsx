@@ -8,7 +8,7 @@ import CreateList from './pages/CreateList'
 import StatsDashboard from './pages/StatsDashboard'
 import { api } from './api'
 
-function Navbar({ token, onLogout }) {
+function Navbar({ token, user, onLogout }) {
   return (
     <div className="navbar">
       <div className="nav-group">
@@ -19,7 +19,7 @@ function Navbar({ token, onLogout }) {
         <img src="/logo.png" alt="Shopping lists" />
       </Link>
       <div className="nav-group">
-        <Link className="pill secondary" to="/stats">Stats</Link>
+        {user?.admin && <Link className="pill secondary" to="/stats">Stats</Link>}
         {token ? (
           <button className="pill primary" onClick={onLogout}>Logout</button>
         ) : (
@@ -36,6 +36,7 @@ function Navbar({ token, onLogout }) {
 export default function App() {
   const [token, setToken] = useState('')
   const [user, setUser] = useState(null)
+  const [loadingUser, setLoadingUser] = useState(true)
   const navigate = useNavigate()
 
   const handleLogin = async (email, password) => {
@@ -45,12 +46,14 @@ export default function App() {
     const profile = await api.me(res.access_token)
     localStorage.setItem('user', JSON.stringify(profile))
     setUser(profile)
+    setLoadingUser(false)
     navigate('/lists')
   }
 
   const handleLogout = () => {
     setToken('')
     setUser(null)
+    setLoadingUser(false)
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     navigate('/login')
@@ -58,29 +61,30 @@ export default function App() {
 
   useEffect(() => {
     const stored = localStorage.getItem('token')
-    const cachedUser = localStorage.getItem('user')
-    if (stored) {
-      setToken(stored)
-      if (cachedUser) {
-        try {
-          setUser(JSON.parse(cachedUser))
-        } catch {
-          localStorage.removeItem('user')
-        }
-      } else {
-        api.me(stored).then((profile) => {
-          setUser(profile)
-          localStorage.setItem('user', JSON.stringify(profile))
-        }).catch(() => {
-          handleLogout()
-        })
+    if (!stored) {
+      setLoadingUser(false)
+      return
+    }
+
+    const fetchProfile = async () => {
+      try {
+        setToken(stored)
+        const profile = await api.me(stored)
+        setUser(profile)
+        localStorage.setItem('user', JSON.stringify(profile))
+      } catch {
+        handleLogout()
+      } finally {
+        setLoadingUser(false)
       }
     }
+
+    fetchProfile()
   }, [])
 
   return (
     <div>
-      <Navbar token={token} onLogout={handleLogout} />
+      <Navbar token={token} user={user} onLogout={handleLogout} />
       <div className="layout">
         <Routes>
           <Route path="/login" element={<Login onLogin={handleLogin} />} />
@@ -97,7 +101,20 @@ export default function App() {
             path="/lists/:id"
             element={token ? <ListDetail token={token} user={user} /> : <Navigate to="/login" />}
           />
-          <Route path="/stats" element={<StatsDashboard />} />
+          <Route
+            path="/stats"
+            element={
+              loadingUser ? (
+                <div className="card">Checking permissions...</div>
+              ) : token && user?.admin ? (
+                <StatsDashboard />
+              ) : token ? (
+                <Navigate to="/lists" replace />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
       </div>

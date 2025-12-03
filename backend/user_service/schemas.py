@@ -16,6 +16,7 @@ class UserOut(BaseModel):
     id: str
     email: EmailStr
     display_name: str
+    admin: bool = False
 
 
 class TokenResponse(BaseModel):

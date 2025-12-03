@@ -18,3 +18,10 @@ class MetricSummary(BaseModel):
     method: str
     average_latency_ms: float
     request_count: int
+
+
+class MethodSummary(BaseModel):
+    service_name: str
+    method: str
+    average_latency_ms: float
+    request_count: int

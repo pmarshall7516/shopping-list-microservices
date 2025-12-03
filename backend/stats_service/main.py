@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import get_metrics_collection
-from schemas import MetricCreate, MetricSummary
+from schemas import MetricCreate, MetricSummary, MethodSummary
 
 load_dotenv()
 
@@ -66,6 +66,37 @@ async def metrics_summary():
             MetricSummary(
                 service_name=meta.get("service_name"),
                 endpoint=meta.get("endpoint"),
+                method=meta.get("method"),
+                request_count=doc.get("request_count", 0),
+                average_latency_ms=doc.get("average_latency_ms", 0.0),
+            )
+        )
+    return summaries
+
+
+@app.get("/metrics/method-summary", response_model=list[MethodSummary])
+async def metrics_method_summary():
+    collection = get_metrics_collection()
+    pipeline = [
+        {
+            "$group": {
+                "_id": {
+                    "service_name": "$service_name",
+                    "method": "$method",
+                },
+                "request_count": {"$sum": 1},
+                "average_latency_ms": {"$avg": "$latency_ms"},
+            }
+        },
+        {"$sort": {"_id.method": 1, "_id.service_name": 1}},
+    ]
+    cursor = collection.aggregate(pipeline)
+    summaries: ListType[MethodSummary] = []
+    async for doc in cursor:
+        meta = doc.get("_id", {})
+        summaries.append(
+            MethodSummary(
+                service_name=meta.get("service_name"),
                 method=meta.get("method"),
                 request_count=doc.get("request_count", 0),
                 average_latency_ms=doc.get("average_latency_ms", 0.0),
