@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import get_history_collection
+from database import get_history_collection, get_lists_collection
 from metrics import send_metric
 from schemas import RecommendationItem, RecommendationRequest, RecommendationResponse
 
@@ -46,40 +46,56 @@ async def fetch_user_history(user_id: str):
     return history
 
 
+async def cooccurrence_scores(current_items: set[str], current_list_id: str | None):
+    """Compute similarity scores based on co-occurrence across lists (simple clustering heuristic)."""
+    collection = get_lists_collection()
+    cursor = collection.find({})
+    score: Counter[str] = Counter()
+    async for doc in cursor:
+        if current_list_id and doc.get("_id") == current_list_id:
+            continue
+        items = {item.get("item_id") for item in doc.get("items", []) if item.get("item_id")}
+        if len(items) < 2:
+            continue
+        overlap = current_items.intersection(items)
+        if not overlap:
+            continue
+        for candidate in items:
+            if candidate in current_items:
+                continue
+            # Score boost by overlap size and list size to mimic clustering proximity
+            score[candidate] += 1 + (len(overlap) / max(len(items), 1))
+    return score
+
+
 @app.post("/recommendations", response_model=RecommendationResponse)
 async def recommend(payload: RecommendationRequest):
-    history = await fetch_user_history(payload.user_id)
     current_set = set(payload.current_items or [])
+    if len(current_set) < 2:
+        return RecommendationResponse(recommendations=[])
 
-    # Simple placeholder logic: frequency-based recommendation excluding current list items.
-    counter: Counter[str] = Counter()
+    recs_counter = await cooccurrence_scores(current_set, payload.list_id)
+
+    # Blend in user history to break ties / enrich scoring
+    history = await fetch_user_history(payload.user_id)
     for record in history:
         for item in record.get("items", []):
-            counter[item] += 1
+            if item in current_set:
+                continue
+            recs_counter[item] += 0.5
 
     recommendations: ListType[RecommendationItem] = []
-    for item_id, freq in counter.most_common(5):
+    for item_id, freq in recs_counter.most_common(10):
         if item_id in current_set:
             continue
+        reason = "Often bought with your current items"
         recommendations.append(
             RecommendationItem(
                 item_id=item_id,
                 score=float(freq),
-                reason="Frequently purchased previously but not in current list",
+                reason=reason,
             )
         )
-
-    # If we have no history, return a few generic placeholders for UI development.
-    if not recommendations:
-        fallback = ["milk", "bread", "eggs"]
-        for idx, item in enumerate(fallback, start=1):
-            recommendations.append(
-                RecommendationItem(
-                    item_id=item,
-                    score=float(len(fallback) - idx + 1),
-                    reason="Starter suggestion placeholder",
-                )
-            )
 
     return RecommendationResponse(recommendations=recommendations)
 

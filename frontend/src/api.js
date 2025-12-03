@@ -87,8 +87,14 @@ export const api = {
     })
   },
   async searchInventory(query) {
-    const url = query ? `${inventoryBase}/items?text=${encodeURIComponent(query)}` : `${inventoryBase}/items`
-    return request(url)
+    const suggestUrl = `${inventoryBase}/items/suggest?text=${encodeURIComponent(query)}&limit=100`
+    try {
+      return await request(suggestUrl)
+    } catch (err) {
+      // Fallback to basic search if suggest route unavailable
+      const url = query ? `${inventoryBase}/items?text=${encodeURIComponent(query)}&limit=100` : `${inventoryBase}/items`
+      return request(url)
+    }
   },
   async createItem(body) {
     return request(`${inventoryBase}/items`, {

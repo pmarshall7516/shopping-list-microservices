@@ -34,12 +34,14 @@ async def record_metrics(request: Request, call_next):
 
 def serialize_item(doc) -> ItemResponse:
     return ItemResponse(
-        id=doc.get("_id"),
+        id=str(doc.get("_id")),
         name=doc.get("name"),
         category=doc.get("category"),
         default_unit=doc.get("default_unit"),
         description=doc.get("description"),
         barcode=doc.get("barcode"),
+        price=doc.get("price"),
+        size=doc.get("size"),
     )
 
 
@@ -61,6 +63,19 @@ async def list_items(category: Optional[str] = None, text: Optional[str] = Query
     if text:
         filters["name"] = {"$regex": text, "$options": "i"}
     cursor = collection.find(filters)
+    results: ListType[ItemResponse] = []
+    async for doc in cursor:
+        results.append(serialize_item(doc))
+    return results
+
+
+@app.get("/items/suggest", response_model=list[ItemResponse])
+async def suggest_items(text: str = Query(min_length=1), limit: int = Query(default=20, ge=1, le=100)):
+    collection = get_items_collection()
+    cursor = (
+        collection.find({"name": {"$regex": text, "$options": "i"}}, limit=limit)
+        .sort("name", 1)
+    )
     results: ListType[ItemResponse] = []
     async for doc in cursor:
         results.append(serialize_item(doc))

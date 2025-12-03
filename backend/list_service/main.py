@@ -1,5 +1,6 @@
 import time
 import uuid
+from datetime import datetime
 from typing import List as ListType
 
 from dotenv import load_dotenv
@@ -39,6 +40,7 @@ def serialize_list(doc) -> ListResponse:
             id=item.get("id"),
             item_id=item.get("item_id"),
             quantity=item.get("quantity", 1),
+            unit=item.get("unit"),
             notes=item.get("notes"),
             checked=item.get("checked", False),
         )
@@ -50,6 +52,7 @@ def serialize_list(doc) -> ListResponse:
         name=doc.get("name"),
         description=doc.get("description"),
         items=items,
+        created_at=doc.get("created_at"),
     )
 
 
@@ -77,6 +80,7 @@ async def create_list(payload: ListCreate, current_user=Depends(get_current_user
         "user_id": current_user["id"],
         "name": payload.name,
         "description": payload.description,
+        "created_at": datetime.utcnow(),
         "items": [],
     }
     await collection.insert_one(doc)
@@ -124,6 +128,7 @@ async def add_list_item(list_id: str, payload: ListItemCreate, current_user=Depe
         "id": str(uuid.uuid4()),
         "item_id": payload.item_id,
         "quantity": payload.quantity,
+        "unit": payload.unit,
         "notes": payload.notes,
         "checked": payload.checked,
     }

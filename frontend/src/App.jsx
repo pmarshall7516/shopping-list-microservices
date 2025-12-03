@@ -1,25 +1,31 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Route, Routes, Navigate, useNavigate } from 'react-router-dom'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Lists from './pages/Lists'
 import ListDetail from './pages/ListDetail'
+import CreateList from './pages/CreateList'
 import StatsDashboard from './pages/StatsDashboard'
 import { api } from './api'
 
 function Navbar({ token, onLogout }) {
   return (
     <div className="navbar">
-      <div>Smart Shopping List</div>
-      <div style={{ display: 'flex', gap: '12px' }}>
-        <Link to="/lists">Lists</Link>
-        <Link to="/stats">Stats</Link>
+      <div className="nav-group">
+        <Link className="pill secondary" to="/lists">Lists</Link>
+        {token && <Link className="pill secondary" to="/lists/create">New List</Link>}
+      </div>
+      <Link className="nav-logo" to="/lists" aria-label="Return to lists">
+        <img src="/logo.png" alt="Shopping lists" />
+      </Link>
+      <div className="nav-group">
+        <Link className="pill secondary" to="/stats">Stats</Link>
         {token ? (
-          <button className="secondary" onClick={onLogout}>Logout</button>
+          <button className="pill primary" onClick={onLogout}>Logout</button>
         ) : (
           <>
-            <Link to="/login">Login</Link>
-            <Link to="/register">Register</Link>
+            <Link className="pill secondary" to="/login">Login</Link>
+            <Link className="pill secondary" to="/register">Register</Link>
           </>
         )}
       </div>
@@ -34,8 +40,10 @@ export default function App() {
 
   const handleLogin = async (email, password) => {
     const res = await api.login(email, password)
+    localStorage.setItem('token', res.access_token)
     setToken(res.access_token)
     const profile = await api.me(res.access_token)
+    localStorage.setItem('user', JSON.stringify(profile))
     setUser(profile)
     navigate('/lists')
   }
@@ -43,8 +51,32 @@ export default function App() {
   const handleLogout = () => {
     setToken('')
     setUser(null)
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
     navigate('/login')
   }
+
+  useEffect(() => {
+    const stored = localStorage.getItem('token')
+    const cachedUser = localStorage.getItem('user')
+    if (stored) {
+      setToken(stored)
+      if (cachedUser) {
+        try {
+          setUser(JSON.parse(cachedUser))
+        } catch {
+          localStorage.removeItem('user')
+        }
+      } else {
+        api.me(stored).then((profile) => {
+          setUser(profile)
+          localStorage.setItem('user', JSON.stringify(profile))
+        }).catch(() => {
+          handleLogout()
+        })
+      }
+    }
+  }, [])
 
   return (
     <div>
@@ -56,6 +88,10 @@ export default function App() {
           <Route
             path="/lists"
             element={token ? <Lists token={token} user={user} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/lists/create"
+            element={token ? <CreateList token={token} user={user} /> : <Navigate to="/login" />}
           />
           <Route
             path="/lists/:id"

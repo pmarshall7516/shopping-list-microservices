@@ -1,14 +1,22 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
 import RecommendationsPanel from '../components/RecommendationsPanel'
+import ItemTypeahead from '../components/ItemTypeahead'
 
-export default function ListDetail({ token }) {
+const formatDate = (date) => {
+  if (!date) return 'Created date not captured'
+  const d = new Date(date)
+  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+export default function ListDetail({ token, user }) {
   const { id } = useParams()
   const [list, setList] = useState(null)
   const [error, setError] = useState('')
   const [itemId, setItemId] = useState('')
   const [quantity, setQuantity] = useState(1)
+  const [unit, setUnit] = useState('')
   const [notes, setNotes] = useState('')
 
   const load = async () => {
@@ -26,9 +34,10 @@ export default function ListDetail({ token }) {
 
   const addItem = async (e) => {
     e.preventDefault()
-    await api.addListItem(token, id, { item_id: itemId, quantity: Number(quantity), notes })
+    await api.addListItem(token, id, { item_id: itemId, quantity: Number(quantity), unit, notes })
     setItemId('')
     setQuantity(1)
+    setUnit('')
     setNotes('')
     load()
   }
@@ -46,41 +55,74 @@ export default function ListDetail({ token }) {
   if (!list) return <div className="card">Loading list...</div>
 
   return (
-    <div className="grid two">
-      <div>
-        <div className="card">
-          <h2>{list.name}</h2>
-          <p>{list.description}</p>
-          {error && <p style={{ color: 'red' }}>{error}</p>}
-          {list.items?.map((item) => (
-            <div key={item.id} className="flex-row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <strong>{item.item_id}</strong>
-                <div style={{ fontSize: 12, color: '#475569' }}>Qty: {item.quantity} {item.notes && `- ${item.notes}`}</div>
-              </div>
-              <div className="flex-row">
-                <button className="secondary" onClick={() => toggleChecked(item)}>
-                  {item.checked ? 'Uncheck' : 'Check'}
-                </button>
-                <button className="secondary" onClick={() => remove(item)}>Remove</button>
-              </div>
-            </div>
-          ))}
+    <div className="stack">
+      <div className="page-header">
+        <div>
+          <p className="muted">List detail</p>
+          <h1 className="page-title">{list.name}</h1>
+          <div className="item-meta">{formatDate(list.created_at)}</div>
         </div>
-        <div className="card">
-          <h3>Add Item</h3>
-          <form onSubmit={addItem}>
-            <label>Item ID or Name</label>
-            <input value={itemId} onChange={(e) => setItemId(e.target.value)} required />
-            <label>Quantity</label>
-            <input type="number" value={quantity} min={1} onChange={(e) => setQuantity(e.target.value)} />
-            <label>Notes</label>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
-            <button type="submit">Add to List</button>
-          </form>
-        </div>
+        <Link className="pill secondary" to="/lists/create">Start new list</Link>
       </div>
-      <RecommendationsPanel token={token} list={list} onApply={(itemId) => setItemId(itemId)} />
+      {error && <p style={{ color: '#ffb4d1' }}>{error}</p>}
+
+      <div className="card-grid two">
+        <div className="stack">
+          <div className="card">
+            <p className="muted">{list.description || 'No description yet.'}</p>
+            <div className="list-items">
+              {list.items?.length === 0 && <div className="empty">Add the first item to this list.</div>}
+              {list.items?.map((item) => (
+                <div key={item.id} className="item-row">
+                  <div className="flex-row" style={{ alignItems: 'center', gap: 10 }}>
+                    <button
+                      className={`bubble-toggle ${item.checked ? 'checked' : ''}`}
+                      onClick={() => toggleChecked(item)}
+                      aria-label={item.checked ? 'Uncheck item' : 'Check item'}
+                    >
+                      <span />
+                    </button>
+                    <div>
+                      <div style={{ fontWeight: 700 }}>{item.item_id}</div>
+                      <div className="item-meta">
+                        x{item.quantity}{item.unit ? ` ${item.unit}` : ''}{item.notes ? ` · ${item.notes}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="inline-actions">
+                    <button className="secondary" onClick={() => remove(item)}>Remove</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card">
+            <h3>Add item</h3>
+            <form onSubmit={addItem}>
+              <label>Item ID or name</label>
+              <ItemTypeahead
+                value={itemId}
+                onChange={setItemId}
+                onSelect={(item) => {
+                  setItemId(item.name)
+                  if (item.default_unit) setUnit(item.default_unit)
+                  if (item.price) setNotes((prev) => (prev ? prev : `Price: ${item.price}`))
+                }}
+                placeholder="Start typing to search catalog or enter custom"
+              />
+              <label>Amount</label>
+              <input type="number" value={quantity} min={1} onChange={(e) => setQuantity(e.target.value)} />
+              <label>Unit/Postfix (optional)</label>
+              <input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="lbs, oz, packs" />
+              <label>Notes</label>
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
+              <button type="submit">Add to list</button>
+            </form>
+          </div>
+        </div>
+        <RecommendationsPanel token={token} list={list} user={user} onApply={(itemId) => setItemId(itemId)} />
+      </div>
     </div>
   )
 }

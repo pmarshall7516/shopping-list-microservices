@@ -21,8 +21,8 @@ export default function StatsDashboard() {
   return (
     <div className="card">
       <h2>Stats Summary</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      {error && <p style={{ color: '#ffb4d1' }}>{error}</p>}
+      <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text)' }}>
         <thead>
           <tr>
             <th align="left">Service</th>
@@ -34,7 +34,7 @@ export default function StatsDashboard() {
         </thead>
         <tbody>
           {metrics.map((m) => (
-            <tr key={`${m.service_name}-${m.endpoint}-${m.method}`} style={{ borderTop: '1px solid #e2e8f0' }}>
+            <tr key={`${m.service_name}-${m.endpoint}-${m.method}`} style={{ borderTop: '1px solid var(--stroke)' }}>
               <td>{m.service_name}</td>
               <td>{m.endpoint}</td>
               <td>{m.method}</td>
@@ -44,7 +44,7 @@ export default function StatsDashboard() {
           ))}
         </tbody>
       </table>
-      <p style={{ fontSize: 12, color: '#475569' }}>Plug real charts here later (e.g., Recharts/D3) to visualize trends.</p>
+      <p className="muted" style={{ fontSize: 12 }}>Plug real charts here later (e.g., Recharts/D3) to visualize trends.</p>
     </div>
   )
 }

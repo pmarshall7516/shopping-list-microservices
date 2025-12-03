@@ -8,6 +8,8 @@ class ItemBase(BaseModel):
     default_unit: Optional[str] = None
     description: Optional[str] = None
     barcode: Optional[str] = None
+    price: Optional[str] = None
+    size: Optional[str] = None
 
 
 class ItemCreate(ItemBase):

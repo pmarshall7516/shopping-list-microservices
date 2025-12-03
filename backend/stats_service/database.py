@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-DB_NAME = os.getenv("DB_NAME", "smart_shopping_stats")
+DB_NAME = os.getenv("STATS_DB_NAME", "smart_shopping_stats")
 
 _client: AsyncIOMotorClient | None = None
 

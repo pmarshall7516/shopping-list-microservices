@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-DB_NAME = os.getenv("DB_NAME", "smart_shopping_recommender")
+DB_NAME = os.getenv("RECOMMENDER_DB_NAME", "smart_shopping_recommender")
+LIST_DB_NAME = os.getenv("LIST_DB_NAME", "smart_shopping_lists")
 
 _client: AsyncIOMotorClient | None = None
 
@@ -22,3 +23,7 @@ def get_database():
 
 def get_history_collection():
     return get_database()["list_history"]
+
+
+def get_lists_collection():
+    return get_client()[LIST_DB_NAME]["lists"]
