@@ -1,0 +1,95 @@
+services:
+  mongodb:
+    image: mongo:6
+    container_name: shopping_mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  user_service:
+    build: ./backend/user_service
+    env_file: .env
+    volumes:
+      - ./backend/user_service:/app
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - DB_NAME=${USER_DB_NAME}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ALGORITHM=${JWT_ALGORITHM}
+      - JWT_EXPIRES_MIN=${JWT_EXPIRES_MIN}
+      - STATS_SERVICE_URL=${STATS_SERVICE_URL}
+    depends_on:
+      - mongodb
+    ports:
+      - "8001:8001"
+
+  list_service:
+    build: ./backend/list_service
+    env_file: .env
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - DB_NAME=${LIST_DB_NAME}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ALGORITHM=${JWT_ALGORITHM}
+      - STATS_SERVICE_URL=${STATS_SERVICE_URL}
+    depends_on:
+      - mongodb
+    ports:
+      - "8002:8002"
+
+  inventory_service:
+    build: ./backend/inventory_service
+    env_file: .env
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - DB_NAME=${INVENTORY_DB_NAME}
+      - STATS_SERVICE_URL=${STATS_SERVICE_URL}
+    depends_on:
+      - mongodb
+    ports:
+      - "8003:8003"
+
+  stats_service:
+    build: ./backend/stats_service
+    env_file: .env
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - DB_NAME=${STATS_DB_NAME}
+    depends_on:
+      - mongodb
+    ports:
+      - "8004:8004"
+
+  recommender_service:
+    build: ./backend/recommender_service
+    env_file: .env
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - DB_NAME=${RECOMMENDER_DB_NAME}
+      - STATS_SERVICE_URL=${STATS_SERVICE_URL}
+    depends_on:
+      - mongodb
+    ports:
+      - "8005:8005"
+
+  frontend:
+    build: ./frontend
+    environment:
+      - VITE_USER_SERVICE_URL=http://localhost:8001
+      - VITE_LIST_SERVICE_URL=http://localhost:8002
+      - VITE_INVENTORY_SERVICE_URL=http://localhost:8003
+      - VITE_STATS_SERVICE_URL=http://localhost:8004
+      - VITE_RECOMMENDER_SERVICE_URL=http://localhost:8005
+    ports:
+      - "5173:5173"
+    depends_on:
+      - user_service
+      - list_service
+      - inventory_service
+      - stats_service
+      - recommender_service
+
+volumes:
+  mongo_data:
