@@ -2,59 +2,73 @@
 
 Starter monorepo for a cloud-native Smart Shopping List system built with FastAPI, MongoDB, React, and Docker Compose. Each service is isolated with its own container and MongoDB namespace while communicating over REST inside a local compose network.
 
-## Services
-- **User Service (`backend/user_service`, :8001)** – account registration/login, JWT issuance, password hashing, `/users/me` profile lookup. Mongo collection: `users`.
-- **List Service (`backend/list_service`, :8002)** – CRUD for shopping lists and list items, scoped by authenticated user. Mongo collection: `lists` (items embedded in list docs).
-- **Inventory Service (`backend/inventory_service`, :8003)** – global catalog of items and categories. Mongo collections: `items`, `categories`.
-- **Stats Service (`backend/stats_service`, :8004)** – receives metrics from other services and returns simple aggregations. Mongo collection: `metrics`.
-- **Recommendation Service (`backend/recommender_service`, :8005)** – stubbed recommender using historical lists. Mongo collection: `list_history`.
-- **Frontend (`frontend`, :5173)** – React + Vite client with auth, lists, list detail + recommendations, and a stats dashboard.
+## Stack & Services
+- **User Service** (`backend/user_service`, :8001, DB `users` in `USER_DB_NAME`) – register/login, JWT issuance, `/users/me` profile lookup. Password hashing with bcrypt + JWT via python-jose.
+- **List Service** (`backend/list_service`, :8002, collection `lists` in `LIST_DB_NAME`) – CRUD shopping lists and embedded list items, scoped by authenticated user.
+- **Inventory Service** (`backend/inventory_service`, :8003, collections `items`, `categories` in `INVENTORY_DB_NAME`) – global catalog search + suggest endpoint.
+- **Stats Service** (`backend/stats_service`, :8004, collection `metrics` in `STATS_DB_NAME`) – ingest metrics and expose summaries.
+- **Recommendation Service** (`backend/recommender_service`, :8005, collection `list_history` in `RECOMMENDER_DB_NAME`) – simple co-occurrence recommender using list history + active items.
+- **Frontend** (`frontend`, :5173) – React + Vite client with auth, lists, list detail + recommendations, and a stats dashboard (admin-only in UI).
 
-All services expose `/health` and add a lightweight middleware hook that can emit metrics to the Stats Service (`STATS_SERVICE_URL`). Auth tokens flow via `Authorization: Bearer <token>`.
+All services expose `/health` and include middleware that can emit metrics to the Stats Service when `STATS_SERVICE_URL` is set. Auth tokens flow via `Authorization: Bearer <token>`.
 
-## Quick Start
-**Prereqs:** Docker, Docker Compose (and optionally Node/NPM for local frontend dev).
+## Environment
+Create a `.env` in the repo root (used by Docker Compose and local runs):
+```
+MONGO_URI=mongodb://mongodb:27017
+USER_DB_NAME=smart_shopping_user
+LIST_DB_NAME=smart_shopping_lists
+INVENTORY_DB_NAME=smart_shopping_inventory
+STATS_DB_NAME=smart_shopping_stats
+RECOMMENDER_DB_NAME=smart_shopping_recommender
 
+JWT_SECRET=supersecret
+JWT_ALGORITHM=HS256
+JWT_EXPIRES_MIN=60
+
+STATS_SERVICE_URL=http://stats_service:8004
+```
+For local frontend dev, optional `.env.local` in `frontend/`:
+```
+VITE_USER_SERVICE_URL=http://localhost:8001
+VITE_LIST_SERVICE_URL=http://localhost:8002
+VITE_INVENTORY_SERVICE_URL=http://localhost:8003
+VITE_STATS_SERVICE_URL=http://localhost:8004
+VITE_RECOMMENDER_SERVICE_URL=http://localhost:8005
+```
+
+## Run with Docker Compose
+**Prereqs:** Docker + Docker Compose.
 ```bash
 docker-compose up --build
 ```
-Then browse the UI at http://localhost:5173. FastAPI UIs: http://localhost:8001/docs, http://localhost:8002/docs, etc.
+Then browse the UI at http://localhost:5173. FastAPI docs live at `http://localhost:<port>/docs` for each service (8001–8005).
 
-Environment defaults (see `docker-compose.yml` or `.env.example`):
-- `MONGO_URI=mongodb://mongodb:27017`
-- `JWT_SECRET=supersecret`, `JWT_ALGORITHM=HS256`, `JWT_EXPIRES_MIN=60`
-- `STATS_SERVICE_URL=http://stats_service:8004`
+## Sample Data (Inventory)
+`grocery_store.csv` contains starter catalog items. Import them into the Inventory Service database:
+```bash
+# from repo root
+docker-compose run --rm inventory_service python import_grocery_csv.py
+# or locally: cd backend/inventory_service && python import_grocery_csv.py /path/to/file.csv
+```
 
-## Service Notes
-### User Service
-- Endpoints: `POST /auth/register`, `POST /auth/login` (returns JWT), `GET /users/me`.
-- Uses `passlib[bcrypt]` for password hashing and `python-jose` for JWT creation/verification.
+## Service Endpoints (high level)
+- **User**: `POST /auth/register`, `POST /auth/login` (returns JWT), `GET /users/me`.
+- **Lists**: `GET/POST /lists`, `GET/PUT/DELETE /lists/{id}`, item routes under `/lists/{id}/items` (add/update/delete with `checked` flag).
+- **Inventory**: `GET /items` (filter by `category`, `text`), `GET /items/suggest?text=`, CRUD on `/items/{id}`, `GET/POST /categories`.
+- **Stats**: `POST /metrics` accepts `{service_name, endpoint, method, status_code, latency_ms, timestamp}`; `GET /metrics/summary`; `GET /metrics/method-summary` (used by UI).
+- **Recommendations**: `POST /recommendations` with `{user_id, list_id?, current_items[]}`; returns up to 10 ranked suggestions based on co-occurrence + user history.
 
-### List Service
-- Endpoints: `GET/POST /lists`, `GET/PUT/DELETE /lists/{id}`, item routes under `/lists/{id}/items`.
-- Embeds list items in the list document and enforces ownership using the JWT `sub` claim.
+## Frontend Features
+- Auth flows (register/login) with token persisted in `localStorage`; `/stats` route is visible only for `admin: true` users (set manually in DB if needed).
+- Lists page (view + delete), create list form, list detail page with inline item add/check/remove and inventory typeahead.
+- Recommendations panel calling the recommender service using current list items, plus Stats dashboard rendering method-level aggregations.
 
-### Inventory Service
-- Global catalog (per-user scoping can be added later). Endpoints for `/items` and `/categories` with simple text/category filtering.
+## Local Development (without Docker)
+- Backend: from a service folder, `pip install -r requirements.txt && uvicorn main:app --reload --port 8001` (adjust port per service). Ensure env vars above are exported or set in a local `.env`.
+- Frontend: `cd frontend && npm install && npm run dev` (reads `VITE_*` vars). Vite dev server defaults to http://localhost:5173.
 
-### Stats Service
-- `POST /metrics` accepts `{service_name, endpoint, method, status_code, latency_ms, timestamp}`.
-- `GET /metrics/summary` aggregates avg latency and counts by service/endpoint/method.
-
-### Recommendation Service
-- `POST /recommendations` accepts `{user_id, list_id?, current_items[]}` and returns ranked dummy suggestions.
-- Placeholder frequency-based logic over `list_history`; comments indicate where to plug in real ML training/inference.
-
-## Frontend
-- Vite + React Router pages: Login/Register, Lists, List Detail (with recommendations), Stats Dashboard.
-- API base URLs are configurable via `VITE_*` vars (see `docker-compose.yml`).
-
-## Local Development (optional)
-- Backend: run any service locally with `uvicorn main:app --reload --port 8001` from its folder (set env vars or add a `.env`).
-- Frontend: `cd frontend && npm install && npm run dev`.
-
-## Extending
-- Replace metrics stub with real instrumentation (middleware already wraps requests).
-- Introduce shared auth library/package if secrets/config diverge.
-- Add integration tests per service and seed scripts for catalog data.
-- Build a load generator that calls each service and posts metrics into Stats Service to stress test latency aggregation.
+## Notes
+- Metrics emission is best-effort; services continue running if the Stats Service is offline.
+- List Service data are user-scoped via JWT `sub`; Inventory data are global in this starter.
+- Recommendation responses are heuristic; replace with a real model by swapping logic in `backend/recommender_service/main.py`.

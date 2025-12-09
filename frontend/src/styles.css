@@ -388,3 +388,39 @@ button.pill.primary {
   font-size: 12px;
   color: var(--muted);
 }
+
+.auth-page {
+  min-height: calc(100vh - 120px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 12px;
+}
+
+.auth-card {
+  width: min(640px, 100%);
+  padding: 28px;
+  border-radius: 22px;
+  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(94, 243, 208, 0.1);
+}
+
+.auth-card h2 {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.auth-form {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-form input {
+  padding: 14px 16px;
+  font-size: 16px;
+}
+
+.auth-form button {
+  margin-top: 6px;
+  padding: 14px 16px;
+  font-size: 16px;
+}

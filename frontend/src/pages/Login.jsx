@@ -16,16 +16,18 @@ export default function Login({ onLogin }) {
   }
 
   return (
-    <div className="card" style={{ maxWidth: 420 }}>
-      <h2>Login</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <form onSubmit={handleSubmit}>
-        <label>Email</label>
-        <input value={email} onChange={(e) => setEmail(e.target.value)} />
-        <label>Password</label>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        <button type="submit">Login</button>
-      </form>
+    <div className="auth-page">
+      <div className="card auth-card">
+        <h2>Login</h2>
+        {error && <p style={{ color: 'red' }}>{error}</p>}
+        <form onSubmit={handleSubmit} className="auth-form">
+          <label>Email</label>
+          <input value={email} onChange={(e) => setEmail(e.target.value)} />
+          <label>Password</label>
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <button type="submit">Login</button>
+        </form>
+      </div>
     </div>
   )
 }
