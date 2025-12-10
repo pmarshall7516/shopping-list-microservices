@@ -13,28 +13,20 @@ Starter monorepo for a cloud-native Smart Shopping List system built with FastAP
 All services expose `/health` and include middleware that can emit metrics to the Stats Service when `STATS_SERVICE_URL` is set. Auth tokens flow via `Authorization: Bearer <token>`.
 
 ## Environment
-Create a `.env` in the repo root (used by Docker Compose and local runs):
+Create a `.env` in the repo root (used by Docker Compose):
 ```
-MONGO_URI=mongodb://mongodb:27017
-USER_DB_NAME=smart_shopping_user
-LIST_DB_NAME=smart_shopping_lists
-INVENTORY_DB_NAME=smart_shopping_inventory
-STATS_DB_NAME=smart_shopping_stats
-RECOMMENDER_DB_NAME=smart_shopping_recommender
+MONGO_URI=mongodb://exampleconnectionstring@examplemongodb:12345
+USER_DB_NAME=example_shopping_user
+LIST_DB_NAME=example_shopping_lists
+INVENTORY_DB_NAME=example_shopping_inventory
+STATS_DB_NAME=example_shopping_stats
+RECOMMENDER_DB_NAME=example_shopping_recommender
 
 JWT_SECRET=supersecret
 JWT_ALGORITHM=HS256
 JWT_EXPIRES_MIN=60
 
 STATS_SERVICE_URL=http://stats_service:8004
-```
-For local frontend dev, optional `.env.local` in `frontend/`:
-```
-VITE_USER_SERVICE_URL=http://localhost:8001
-VITE_LIST_SERVICE_URL=http://localhost:8002
-VITE_INVENTORY_SERVICE_URL=http://localhost:8003
-VITE_STATS_SERVICE_URL=http://localhost:8004
-VITE_RECOMMENDER_SERVICE_URL=http://localhost:8005
 ```
 
 ## Run with Docker Compose
@@ -48,8 +40,7 @@ Then browse the UI at http://localhost:5173. FastAPI docs live at `http://localh
 `grocery_store.csv` contains starter catalog items. Import them into the Inventory Service database:
 ```bash
 # from repo root
-docker-compose run --rm inventory_service python import_grocery_csv.py
-# or locally: cd backend/inventory_service && python import_grocery_csv.py /path/to/file.csv
+docker-compose run --rm inventory_service python backend/inventory_service/import_grocery_csv.py
 ```
 
 ## Service Endpoints (high level)
@@ -64,11 +55,8 @@ docker-compose run --rm inventory_service python import_grocery_csv.py
 - Lists page (view + delete), create list form, list detail page with inline item add/check/remove and inventory typeahead.
 - Recommendations panel calling the recommender service using current list items, plus Stats dashboard rendering method-level aggregations.
 
-## Local Development (without Docker)
-- Backend: from a service folder, `pip install -r requirements.txt && uvicorn main:app --reload --port 8001` (adjust port per service). Ensure env vars above are exported or set in a local `.env`.
-- Frontend: `cd frontend && npm install && npm run dev` (reads `VITE_*` vars). Vite dev server defaults to http://localhost:5173.
-
 ## Notes
 - Metrics emission is best-effort; services continue running if the Stats Service is offline.
 - List Service data are user-scoped via JWT `sub`; Inventory data are global in this starter.
 - Recommendation responses are heuristic; replace with a real model by swapping logic in `backend/recommender_service/main.py`.
+- `python stress.py` runs a simple test (when the app is running) which runs a workload of opperations with an increasingly larger number concurrent opperations. The latency of these operations is recorded in order to measure how differing amounts of concurrent requests/API calls effects the latency of these calls. 
